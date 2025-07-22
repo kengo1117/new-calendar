@@ -4,16 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>勉強カレンダー</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
     body {
       font-family: sans-serif;
-      text-align: center;
       background: #f0f4f8;
       margin: 0;
       padding: 0;
+      text-align: center;
     }
     h1 {
       margin: 20px 10px 10px;
@@ -31,7 +30,6 @@
       font-weight: bold;
       font-size: 1.2em;
     }
-
     button.nav-btn {
       padding: 6px 12px;
       font-size: 1em;
@@ -57,33 +55,30 @@
       background: white;
       border: 1px solid #ccc;
       padding: 5px;
-      min-height: 90px;
+      min-height: 100px;
       font-size: 0.85em;
       position: relative;
       cursor: pointer;
+      overflow-wrap: break-word;
     }
     .day:hover {
       background: #e6f7ff;
     }
     .note {
-      font-size: 0.75em;
+      font-size: 0.7em;
       color: #333;
       margin-top: 4px;
       text-align: left;
-      word-break: break-word;
     }
-    .subject-label {
-      display: inline-block;
-      padding: 2px 6px;
-      border-radius: 4px;
-      color: white;
-      font-size: 0.7em;
-      margin-top: 4px;
+
+    .achieved {
+      color: green;
+      font-weight: bold;
     }
 
     #noteModal {
       position: fixed;
-      top: 10%;
+      top: 5%;
       left: 50%;
       transform: translateX(-50%);
       background: white;
@@ -93,25 +88,36 @@
       z-index: 1000;
       box-shadow: 0 2px 10px rgba(0,0,0,0.3);
       width: 90%;
-      max-width: 400px;
-      max-height: 80%;
+      max-width: 420px;
+      max-height: 90%;
       overflow-y: auto;
       border-radius: 10px;
+      text-align: left;
     }
 
     #noteModal h3 {
       margin-top: 0;
+      text-align: center;
     }
 
-    #noteModal textarea, #noteModal select, #noteModal input {
-      width: 100%;
+    #noteModal label {
+      display: block;
       margin-top: 10px;
+    }
+
+    #noteModal input, #noteModal textarea {
+      width: 100%;
+      padding: 6px;
       font-size: 1em;
-      padding: 5px;
+      margin-top: 5px;
+    }
+
+    #noteModal textarea {
+      resize: vertical;
     }
 
     #noteModal button {
-      margin-top: 10px;
+      margin-top: 15px;
       padding: 8px 12px;
       font-size: 1em;
       margin-right: 10px;
@@ -126,21 +132,19 @@
       z-index: 999;
     }
 
+    #chartContainer {
+      max-width: 400px;
+      margin: 20px auto;
+      background: white;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
     @media screen and (max-width: 600px) {
-      .day {
-        min-height: 80px;
-        padding: 4px;
-        font-size: 0.75em;
-      }
-      .note {
-        font-size: 0.65em;
-      }
-      .subject-label {
-        font-size: 0.65em;
-      }
-      #monthYear {
-        font-size: 1em;
-      }
+      .day { min-height: 90px; font-size: 0.75em; }
+      .note { font-size: 0.65em; }
+      #monthYear { font-size: 1em; }
     }
   </style>
 </head>
@@ -154,48 +158,49 @@
 
   <div id="calendar"></div>
 
+  <div id="chartContainer">
+    <canvas id="achievementChart" height="200"></canvas>
+  </div>
+
   <div id="overlay"></div>
   <div id="noteModal">
     <h3 id="modalDate"></h3>
-    <label>教科を選択：</label>
-    <select id="subjectSelect">
-      <option value="">-- 選択 --</option>
-      <option value="英語">英語</option>
-      <option value="数学">数学</option>
-      <option value="理科">理科</option>
-      <option value="社会">社会</option>
-      <option value="国語">国語</option>
-    </select>
 
-    <label>勉強時間 (時間)：</label>
-    <input type="number" id="studyTime" min="0" step="0.5">
+    <label>教科（予定）:</label>
+    <input type="text" id="subject">
 
-    <label>メモ：</label>
-    <textarea id="noteText" rows="4"></textarea><br>
+    <label>予定時間 (h):</label>
+    <input type="number" id="planTime" min="0" step="0.5">
 
-    <button onclick="saveNote()">保存</button>
-    <button onclick="closeModal()">閉じる</button>
+    <label>予定メモ:</label>
+    <textarea id="planNote" rows="2"></textarea>
+
+    <label>実際にやったこと:</label>
+    <textarea id="actualNote" rows="2"></textarea>
+
+    <label>勉強できた？</label>
+    <input type="checkbox" id="achieved"> ✔ 達成
+
+    <div style="text-align:center;">
+      <button onclick="saveNote()">保存</button>
+      <button onclick="closeModal()">閉じる</button>
+    </div>
   </div>
 
   <script>
     const calendar = document.getElementById('calendar');
     const noteModal = document.getElementById('noteModal');
     const overlay = document.getElementById('overlay');
-    const noteText = document.getElementById('noteText');
     const modalDate = document.getElementById('modalDate');
-    const subjectSelect = document.getElementById('subjectSelect');
-    const studyTimeInput = document.getElementById('studyTime');
     const monthYear = document.getElementById('monthYear');
+    const subject = document.getElementById('subject');
+    const planTime = document.getElementById('planTime');
+    const planNote = document.getElementById('planNote');
+    const actualNote = document.getElementById('actualNote');
+    const achieved = document.getElementById('achieved');
     let currentDate = new Date();
     let selectedDate = "";
-
-    const subjectColors = {
-      "英語": "#4a90e2",
-      "数学": "#2ecc71",
-      "理科": "#f39c12",
-      "社会": "#e74c3c",
-      "国語": "#9b59b6"
-    };
+    let chart;
 
     function buildCalendar() {
       calendar.innerHTML = '';
@@ -205,6 +210,7 @@
 
       const firstDay = new Date(year, month, 1).getDay();
       const lastDate = new Date(year, month + 1, 0).getDate();
+      let achievedCount = 0;
 
       for (let i = 0; i < firstDay; i++) {
         calendar.innerHTML += `<div></div>`;
@@ -213,28 +219,34 @@
       for (let d = 1; d <= lastDate; d++) {
         const dateKey = `${year}-${month + 1}-${d}`;
         const data = JSON.parse(localStorage.getItem(dateKey) || '{}');
-        const note = data.note || '';
-        const subject = data.subject || '';
-        const time = data.time || '';
-        const subjectColor = subjectColors[subject] || '#888';
+        const subj = data.subject || '';
+        const plan = data.planNote || '';
+        const done = data.achieved;
+
+        if (done) achievedCount++;
 
         calendar.innerHTML += `
           <div class="day" onclick="openModal('${dateKey}')">
             ${d}
-            ${subject ? `<div class="subject-label" style="background:${subjectColor};">${subject}</div>` : ''}
-            ${time ? `<div class="note">🕒 ${time}h</div>` : ''}
-            ${note ? `<div class="note">${note.slice(0, 20)}…</div>` : ''}
+            ${subj ? `<div class="note">📘 ${subj}</div>` : ''}
+            ${plan ? `<div class="note">📝 ${plan.slice(0, 20)}…</div>` : ''}
+            ${done ? `<div class="achieved">✅</div>` : ''}
           </div>`;
       }
+
+      const achievementRate = lastDate ? Math.round((achievedCount / lastDate) * 100) : 0;
+      updateChart(achievementRate);
     }
 
     function openModal(date) {
       selectedDate = date;
       modalDate.textContent = `📅 ${date} の記録`;
       const saved = JSON.parse(localStorage.getItem(date) || '{}');
-      subjectSelect.value = saved.subject || '';
-      noteText.value = saved.note || '';
-      studyTimeInput.value = saved.time || '';
+      subject.value = saved.subject || '';
+      planTime.value = saved.planTime || '';
+      planNote.value = saved.planNote || '';
+      actualNote.value = saved.actualNote || '';
+      achieved.checked = saved.achieved || false;
       noteModal.style.display = 'block';
       overlay.style.display = 'block';
     }
@@ -246,9 +258,11 @@
 
     function saveNote() {
       const data = {
-        subject: subjectSelect.value,
-        note: noteText.value,
-        time: studyTimeInput.value
+        subject: subject.value,
+        planTime: planTime.value,
+        planNote: planNote.value,
+        actualNote: actualNote.value,
+        achieved: achieved.checked
       };
       localStorage.setItem(selectedDate, JSON.stringify(data));
       closeModal();
@@ -260,7 +274,40 @@
       buildCalendar();
     }
 
+    function updateChart(rate) {
+      if (chart) chart.destroy();
+      const ctx = document.getElementById('achievementChart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['達成率'],
+          datasets: [{
+            label: '%',
+            data: [rate],
+            backgroundColor: rate >= 70 ? '#2ecc71' : '#e67e22',
+            borderRadius: 6,
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: { stepSize: 20 }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              label: ctx => `${ctx.raw}% 達成`
+            }}
+          }
+        }
+      });
+    }
+
     buildCalendar();
   </script>
 </body>
 </html>
+
