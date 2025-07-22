@@ -8,18 +8,21 @@
     body {
       font-family: sans-serif;
       margin: 0;
-      padding: 10px;
+      padding: 0;
       background: #f9f9f9;
     }
     h1 {
       text-align: center;
+      margin-top: 20px;
     }
     #calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
       gap: 5px;
-      max-width: 600px;
+      max-width: 1000px;
       margin: 0 auto;
+      padding: 10px;
+      box-sizing: border-box;
     }
     .day {
       background: white;
@@ -33,6 +36,12 @@
     .day-header {
       font-weight: bold;
       text-align: center;
+    }
+    .sunday {
+      color: red;
+    }
+    .saturday {
+      color: blue;
     }
     .subject {
       display: inline-block;
@@ -65,8 +74,10 @@
       max-width: 400px;
     }
     #graph {
-      max-width: 600px;
+      max-width: 1000px;
       margin: 20px auto;
+      padding: 10px;
+      box-sizing: border-box;
     }
     canvas {
       width: 100% !important;
@@ -147,10 +158,12 @@
       const daysInMonth = new Date(year, month + 1, 0).getDate();
 
       const headers = ["日", "月", "火", "水", "木", "金", "土"];
-      headers.forEach(h => {
+      headers.forEach((h, i) => {
         const div = document.createElement("div");
         div.textContent = h;
         div.className = "day-header";
+        if (i === 0) div.classList.add("sunday");
+        if (i === 6) div.classList.add("saturday");
         calendar.appendChild(div);
       });
 
@@ -164,6 +177,10 @@
       for (let d = 1; d <= daysInMonth; d++) {
         const div = document.createElement("div");
         div.className = "day";
+        const date = new Date(year, month, d);
+        const dayOfWeek = date.getDay();
+        if (dayOfWeek === 0) div.classList.add("sunday");
+        if (dayOfWeek === 6) div.classList.add("saturday");
         const dateKey = d;
         div.innerHTML = `<strong>${d}</strong><br/>`;
         if (saved[dateKey]) {
@@ -258,6 +275,3 @@
   </script>
 </body>
 </html>
-
-
-
