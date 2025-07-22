@@ -2,205 +2,151 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>勉強カレンダー</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    * { box-sizing: border-box; }
     body {
       font-family: sans-serif;
-      background: #f0f4f8;
       margin: 0;
-      padding: 0;
-      text-align: center;
+      padding: 10px;
     }
     h1 {
-      margin: 20px 10px 10px;
-      font-size: 1.5em;
+      text-align: center;
     }
-    #header {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-    }
-    #monthYear {
-      font-weight: bold;
-      font-size: 1.2em;
-    }
-    button.nav-btn {
-      padding: 6px 12px;
-      font-size: 1em;
-      background: #4a90e2;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    button.nav-btn:hover {
-      background: #357ab8;
-    }
-
     #calendar {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 4px;
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 0 10px 20px;
+      gap: 5px;
     }
     .day {
-      background: white;
+      background: #f3f3f3;
       border: 1px solid #ccc;
-      padding: 5px;
-      min-height: 100px;
-      font-size: 0.85em;
-      position: relative;
+      padding: 10px;
       cursor: pointer;
-      overflow-wrap: break-word;
-    }
-    .day:hover {
-      background: #e6f7ff;
+      min-height: 80px;
+      position: relative;
+      font-size: 0.8em;
     }
     .note {
-      font-size: 0.7em;
-      color: #333;
-      margin-top: 4px;
-      text-align: left;
+      font-size: 0.75em;
+      color: #555;
     }
-
     .achieved {
+      position: absolute;
+      top: 5px;
+      right: 5px;
       color: green;
       font-weight: bold;
     }
-
-    #noteModal {
+    #modal, #goalModal {
+      display: none;
       position: fixed;
-      top: 5%;
+      top: 10%;
       left: 50%;
       transform: translateX(-50%);
       background: white;
-      border: 1px solid #aaa;
-      padding: 15px;
-      display: none;
-      z-index: 1000;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      border: 1px solid #ccc;
+      padding: 20px;
+      z-index: 10;
       width: 90%;
-      max-width: 420px;
-      max-height: 90%;
-      overflow-y: auto;
+      max-width: 400px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
       border-radius: 10px;
-      text-align: left;
     }
-
-    #noteModal h3 {
-      margin-top: 0;
-      text-align: center;
-    }
-
-    #noteModal label {
-      display: block;
-      margin-top: 10px;
-    }
-
-    #noteModal input, #noteModal textarea {
-      width: 100%;
-      padding: 6px;
-      font-size: 1em;
-      margin-top: 5px;
-    }
-
-    #noteModal textarea {
-      resize: vertical;
-    }
-
-    #noteModal button {
-      margin-top: 15px;
-      padding: 8px 12px;
-      font-size: 1em;
-      margin-right: 10px;
-    }
-
     #overlay {
+      display: none;
       position: fixed;
       top: 0; left: 0;
       width: 100%; height: 100%;
       background: rgba(0,0,0,0.3);
-      display: none;
-      z-index: 999;
+      z-index: 5;
     }
-
+    label {
+      display: block;
+      margin: 8px 0 4px;
+    }
+    input, textarea, select {
+      width: 100%;
+      padding: 6px;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 6px 12px;
+      margin: 4px;
+    }
     #chartContainer {
       max-width: 400px;
       margin: 20px auto;
-      background: white;
-      padding: 10px;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-
     @media screen and (max-width: 600px) {
-      .day { min-height: 90px; font-size: 0.75em; }
-      .note { font-size: 0.65em; }
-      #monthYear { font-size: 1em; }
+      .day {
+        padding: 5px;
+        min-height: 60px;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>勉強カレンダー</h1>
-  <div id="header">
-    <button class="nav-btn" onclick="changeMonth(-1)">＜ 前の月</button>
+  <h1>📘 勉強カレンダー</h1>
+  <div style="text-align:center; margin-bottom: 10px;">
+    <button onclick="prevMonth()">← 前月</button>
     <span id="monthYear"></span>
-    <button class="nav-btn" onclick="changeMonth(1)">次の月 ＞</button>
+    <button onclick="nextMonth()">次月 →</button>
+  </div>
+
+  <!-- 🎯 月間目標表示 -->
+  <div id="goalArea" style="margin-bottom: 10px; text-align:center;">
+    <div>🎯 今月の目標: <span id="goalText">(未設定)</span></div>
+    <button onclick="openGoalModal()">✏️ 目標を設定</button>
+  </div>
+
+  <!-- 📤📥 エクスポート/インポート -->
+  <div style="text-align: center; margin-bottom: 10px;">
+    <button onclick="exportData()">📤 データをエクスポート</button>
+    <input type="file" id="importFile" style="display:none;" onchange="importData(event)">
+    <button onclick="document.getElementById('importFile').click()">📥 インポート</button>
   </div>
 
   <div id="calendar"></div>
 
   <div id="chartContainer">
-    <canvas id="achievementChart" height="200"></canvas>
+    <canvas id="achievementChart"></canvas>
   </div>
 
-  <div id="overlay"></div>
-  <div id="noteModal">
+  <!-- モーダル（勉強記録） -->
+  <div id="modal">
     <h3 id="modalDate"></h3>
-
-    <label>教科（予定）:</label>
+    <label>教科</label>
     <input type="text" id="subject">
-
-    <label>予定時間 (h):</label>
-    <input type="number" id="planTime" min="0" step="0.5">
-
-    <label>予定メモ:</label>
-    <textarea id="planNote" rows="2"></textarea>
-
-    <label>実際にやったこと:</label>
-    <textarea id="actualNote" rows="2"></textarea>
-
-    <label>勉強できた？</label>
-    <input type="checkbox" id="achieved"> ✔ 達成
-
+    <label>予定（内容）</label>
+    <textarea id="planNote"></textarea>
+    <label>実績（内容）</label>
+    <textarea id="actualNote"></textarea>
+    <label>予定通りできた？</label>
+    <input type="checkbox" id="achieved">
     <div style="text-align:center;">
-      <button onclick="saveNote()">保存</button>
+      <button onclick="saveData()">保存</button>
       <button onclick="closeModal()">閉じる</button>
     </div>
   </div>
 
+  <!-- モーダル（月目標） -->
+  <div id="goalModal">
+    <h3>🎯 今月の目標を入力</h3>
+    <textarea id="goalInput" rows="4"></textarea>
+    <div style="text-align:center;">
+      <button onclick="saveGoal()">保存</button>
+      <button onclick="closeGoalModal()">閉じる</button>
+    </div>
+  </div>
+
+  <div id="overlay" onclick="closeModal(); closeGoalModal();"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const calendar = document.getElementById('calendar');
-    const noteModal = document.getElementById('noteModal');
-    const overlay = document.getElementById('overlay');
-    const modalDate = document.getElementById('modalDate');
-    const monthYear = document.getElementById('monthYear');
-    const subject = document.getElementById('subject');
-    const planTime = document.getElementById('planTime');
-    const planNote = document.getElementById('planNote');
-    const actualNote = document.getElementById('actualNote');
-    const achieved = document.getElementById('achieved');
     let currentDate = new Date();
-    let selectedDate = "";
-    let chart;
+    const calendar = document.getElementById("calendar");
+    const monthYear = document.getElementById("monthYear");
 
     function buildCalendar() {
       calendar.innerHTML = '';
@@ -234,73 +180,137 @@
           </div>`;
       }
 
-      const achievementRate = lastDate ? Math.round((achievedCount / lastDate) * 100) : 0;
-      updateChart(achievementRate);
+      const rate = Math.round((achievedCount / lastDate) * 100);
+      updateChart(rate);
+      loadGoal();
     }
 
-    function openModal(date) {
-      selectedDate = date;
-      modalDate.textContent = `📅 ${date} の記録`;
-      const saved = JSON.parse(localStorage.getItem(date) || '{}');
-      subject.value = saved.subject || '';
-      planTime.value = saved.planTime || '';
-      planNote.value = saved.planNote || '';
-      actualNote.value = saved.actualNote || '';
-      achieved.checked = saved.achieved || false;
-      noteModal.style.display = 'block';
-      overlay.style.display = 'block';
+    function prevMonth() {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      buildCalendar();
+    }
+
+    function nextMonth() {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      buildCalendar();
+    }
+
+    let currentKey = "";
+    function openModal(key) {
+      currentKey = key;
+      const data = JSON.parse(localStorage.getItem(key) || '{}');
+      document.getElementById("modalDate").textContent = key;
+      document.getElementById("subject").value = data.subject || '';
+      document.getElementById("planNote").value = data.planNote || '';
+      document.getElementById("actualNote").value = data.actualNote || '';
+      document.getElementById("achieved").checked = data.achieved || false;
+      document.getElementById("modal").style.display = 'block';
+      document.getElementById("overlay").style.display = 'block';
     }
 
     function closeModal() {
-      noteModal.style.display = 'none';
-      overlay.style.display = 'none';
+      document.getElementById("modal").style.display = 'none';
+      document.getElementById("overlay").style.display = 'none';
     }
 
-    function saveNote() {
+    function saveData() {
       const data = {
-        subject: subject.value,
-        planTime: planTime.value,
-        planNote: planNote.value,
-        actualNote: actualNote.value,
-        achieved: achieved.checked
+        subject: document.getElementById("subject").value,
+        planNote: document.getElementById("planNote").value,
+        actualNote: document.getElementById("actualNote").value,
+        achieved: document.getElementById("achieved").checked
       };
-      localStorage.setItem(selectedDate, JSON.stringify(data));
+      localStorage.setItem(currentKey, JSON.stringify(data));
       closeModal();
       buildCalendar();
     }
 
-    function changeMonth(offset) {
-      currentDate.setMonth(currentDate.getMonth() + offset);
-      buildCalendar();
+    function getMonthKey() {
+      return `${currentDate.getFullYear()}-${currentDate.getMonth() + 1}`;
     }
 
+    function openGoalModal() {
+      const key = "goal-" + getMonthKey();
+      document.getElementById("goalInput").value = localStorage.getItem(key) || "";
+      document.getElementById("goalModal").style.display = "block";
+      document.getElementById("overlay").style.display = "block";
+    }
+
+    function closeGoalModal() {
+      document.getElementById("goalModal").style.display = "none";
+      document.getElementById("overlay").style.display = "none";
+    }
+
+    function saveGoal() {
+      const key = "goal-" + getMonthKey();
+      localStorage.setItem(key, document.getElementById("goalInput").value);
+      closeGoalModal();
+      loadGoal();
+    }
+
+    function loadGoal() {
+      const key = "goal-" + getMonthKey();
+      document.getElementById("goalText").textContent = localStorage.getItem(key) || "(未設定)";
+    }
+
+    // 📤 エクスポート
+    function exportData() {
+      const allData = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith("goal-") || key.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+          allData[key] = localStorage.getItem(key);
+        }
+      }
+      const blob = new Blob([JSON.stringify(allData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "study_data_backup.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // 📥 インポート
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          for (const [k, v] of Object.entries(data)) {
+            localStorage.setItem(k, v);
+          }
+          alert("インポート完了！ページを再読み込みします。");
+          location.reload();
+        } catch (e) {
+          alert("読み込みに失敗しました。ファイルを確認してください。");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // 📊 達成率グラフ
+    let chart;
     function updateChart(rate) {
+      const ctx = document.getElementById("achievementChart").getContext("2d");
       if (chart) chart.destroy();
-      const ctx = document.getElementById('achievementChart').getContext('2d');
       chart = new Chart(ctx, {
-        type: 'bar',
+        type: 'doughnut',
         data: {
-          labels: ['達成率'],
+          labels: ['達成率', '未達成'],
           datasets: [{
-            label: '%',
-            data: [rate],
-            backgroundColor: rate >= 70 ? '#2ecc71' : '#e67e22',
-            borderRadius: 6,
+            data: [rate, 100 - rate],
+            backgroundColor: ['#4caf50', '#e0e0e0']
           }]
         },
         options: {
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: 100,
-              ticks: { stepSize: 20 }
-            }
-          },
+          responsive: true,
           plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: {
-              label: ctx => `${ctx.raw}% 達成`
-            }}
+            legend: {
+              display: true
+            }
           }
         }
       });
@@ -310,4 +320,5 @@
   </script>
 </body>
 </html>
+
 
