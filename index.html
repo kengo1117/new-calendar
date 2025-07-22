@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>勉強カレンダー</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: #f0f4f8;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      margin: 20px 10px 10px;
+      font-size: 1.5em;
+    }
+    #header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    #monthYear {
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+
+    button.nav-btn {
+      padding: 6px 12px;
+      font-size: 1em;
+      background: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button.nav-btn:hover {
+      background: #357ab8;
+    }
+
+    #calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 0 10px 20px;
+    }
+    .day {
+      background: white;
+      border: 1px solid #ccc;
+      padding: 5px;
+      min-height: 90px;
+      font-size: 0.85em;
+      position: relative;
+      cursor: pointer;
+    }
+    .day:hover {
+      background: #e6f7ff;
+    }
+    .note {
+      font-size: 0.75em;
+      color: #333;
+      margin-top: 4px;
+      text-align: left;
+      word-break: break-word;
+    }
+    .subject-label {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: white;
+      font-size: 0.7em;
+      margin-top: 4px;
+    }
+
+    #noteModal {
+      position: fixed;
+      top: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      border: 1px solid #aaa;
+      padding: 15px;
+      display: none;
+      z-index: 1000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      width: 90%;
+      max-width: 400px;
+      max-height: 80%;
+      overflow-y: auto;
+      border-radius: 10px;
+    }
+
+    #noteModal h3 {
+      margin-top: 0;
+    }
+
+    #noteModal textarea, #noteModal select, #noteModal input {
+      width: 100%;
+      margin-top: 10px;
+      font-size: 1em;
+      padding: 5px;
+    }
+
+    #noteModal button {
+      margin-top: 10px;
+      padding: 8px 12px;
+      font-size: 1em;
+      margin-right: 10px;
+    }
+
+    #overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.3);
+      display: none;
+      z-index: 999;
+    }
+
+    @media screen and (max-width: 600px) {
+      .day {
+        min-height: 80px;
+        padding: 4px;
+        font-size: 0.75em;
+      }
+      .note {
+        font-size: 0.65em;
+      }
+      .subject-label {
+        font-size: 0.65em;
+      }
+      #monthYear {
+        font-size: 1em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>勉強カレンダー</h1>
+  <div id="header">
+    <button class="nav-btn" onclick="changeMonth(-1)">＜ 前の月</button>
+    <span id="monthYear"></span>
+    <button class="nav-btn" onclick="changeMonth(1)">次の月 ＞</button>
+  </div>
+
+  <div id="calendar"></div>
+
+  <div id="overlay"></div>
+  <div id="noteModal">
+    <h3 id="modalDate"></h3>
+    <label>教科を選択：</label>
+    <select id="subjectSelect">
+      <option value="">-- 選択 --</option>
+      <option value="英語">英語</option>
+      <option value="数学">数学</option>
+      <option value="理科">理科</option>
+      <option value="社会">社会</option>
+      <option value="国語">国語</option>
+    </select>
+
+    <label>勉強時間 (時間)：</label>
+    <input type="number" id="studyTime" min="0" step="0.5">
+
+    <label>メモ：</label>
+    <textarea id="noteText" rows="4"></textarea><br>
+
+    <button onclick="saveNote()">保存</button>
+    <button onclick="closeModal()">閉じる</button>
+  </div>
+
+  <script>
+    const calendar = document.getElementById('calendar');
+    const noteModal = document.getElementById('noteModal');
+    const overlay = document.getElementById('overlay');
+    const noteText = document.getElementById('noteText');
+    const modalDate = document.getElementById('modalDate');
+    const subjectSelect = document.getElementById('subjectSelect');
+    const studyTimeInput = document.getElementById('studyTime');
+    const monthYear = document.getElementById('monthYear');
+    let currentDate = new Date();
+    let selectedDate = "";
+
+    const subjectColors = {
+      "英語": "#4a90e2",
+      "数学": "#2ecc71",
+      "理科": "#f39c12",
+      "社会": "#e74c3c",
+      "国語": "#9b59b6"
+    };
+
+    function buildCalendar() {
+      calendar.innerHTML = '';
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      monthYear.textContent = `${year}年 ${month + 1}月`;
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const lastDate = new Date(year, month + 1, 0).getDate();
+
+      for (let i = 0; i < firstDay; i++) {
+        calendar.innerHTML += `<div></div>`;
+      }
+
+      for (let d = 1; d <= lastDate; d++) {
+        const dateKey = `${year}-${month + 1}-${d}`;
+        const data = JSON.parse(localStorage.getItem(dateKey) || '{}');
+        const note = data.note || '';
+        const subject = data.subject || '';
+        const time = data.time || '';
+        const subjectColor = subjectColors[subject] || '#888';
+
+        calendar.innerHTML += `
+          <div class="day" onclick="openModal('${dateKey}')">
+            ${d}
+            ${subject ? `<div class="subject-label" style="background:${subjectColor};">${subject}</div>` : ''}
+            ${time ? `<div class="note">🕒 ${time}h</div>` : ''}
+            ${note ? `<div class="note">${note.slice(0, 20)}…</div>` : ''}
+          </div>`;
+      }
+    }
+
+    function openModal(date) {
+      selectedDate = date;
+      modalDate.textContent = `📅 ${date} の記録`;
+      const saved = JSON.parse(localStorage.getItem(date) || '{}');
+      subjectSelect.value = saved.subject || '';
+      noteText.value = saved.note || '';
+      studyTimeInput.value = saved.time || '';
+      noteModal.style.display = 'block';
+      overlay.style.display = 'block';
+    }
+
+    function closeModal() {
+      noteModal.style.display = 'none';
+      overlay.style.display = 'none';
+    }
+
+    function saveNote() {
+      const data = {
+        subject: subjectSelect.value,
+        note: noteText.value,
+        time: studyTimeInput.value
+      };
+      localStorage.setItem(selectedDate, JSON.stringify(data));
+      closeModal();
+      buildCalendar();
+    }
+
+    function changeMonth(offset) {
+      currentDate.setMonth(currentDate.getMonth() + offset);
+      buildCalendar();
+    }
+
+    buildCalendar();
+  </script>
+</body>
+</html>
